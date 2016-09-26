@@ -278,20 +278,8 @@ public class AppleBundle
     return platformName;
   }
 
-  public Path getFrameworksPath() {
-    return bundleRoot.resolve(this.destinations.getFrameworksPath());
-  }
-
-  public Path getPlugInsPath() {
-    return bundleRoot.resolve(destinations.getPlugInsPath());
-  }
-
   public Optional<BuildRule> getBinary() {
     return binary;
-  }
-
-  public Path getBundleBinaryPath() {
-    return bundleBinaryPath;
   }
 
   public boolean isLegacyWatchApp() {
@@ -421,7 +409,7 @@ public class AppleBundle
     }
 
     if (!frameworks.isEmpty()) {
-      Path frameworksDestinationPath = getFrameworksPath();
+      Path frameworksDestinationPath = bundleRoot.resolve(this.destinations.getFrameworksPath());
       stepsBuilder.add(new MkdirStep(getProjectFilesystem(), frameworksDestinationPath));
       for (SourcePath framework : frameworks) {
         stepsBuilder.add(
@@ -512,7 +500,11 @@ public class AppleBundle
         };
       }
 
-      addSwiftStdlibStepIfNeeded(Optional.of(codeSignIdentitySupplier), stepsBuilder);
+      addSwiftStdlibStepIfNeeded(
+        bundleRoot.resolve(Paths.get("Frameworks")),
+        Optional.of(codeSignIdentitySupplier),
+        stepsBuilder
+      );
 
       stepsBuilder.add(
           new CodeSignStep(
@@ -523,7 +515,11 @@ public class AppleBundle
               codeSignIdentitySupplier,
               codesignAllocatePath));
     } else {
-      addSwiftStdlibStepIfNeeded(Optional.<Supplier<CodeSignIdentity>>absent(), stepsBuilder);
+      addSwiftStdlibStepIfNeeded(
+        bundleRoot.resolve(Paths.get("Frameworks")),
+        Optional.<Supplier<CodeSignIdentity>>absent(),
+        stepsBuilder
+      );
     }
 
     // Ensure the bundle directory is archived so we can fetch it later.
@@ -689,7 +685,8 @@ public class AppleBundle
     return keys.build();
   }
 
-  private void addSwiftStdlibStepIfNeeded(
+  public void addSwiftStdlibStepIfNeeded(
+      Path destinationPath,
       Optional<Supplier<CodeSignIdentity>> codeSignIdentitySupplier,
       ImmutableList.Builder<Step> stepsBuilder) {
     // It's apparently safe to run this even on a non-swift bundle (in that case, no libs
@@ -701,9 +698,9 @@ public class AppleBundle
           "--scan-executable",
           bundleBinaryPath.toString(),
           "--scan-folder",
-          getFrameworksPath().toString(),
+          bundleRoot.resolve(this.destinations.getFrameworksPath()).toString(),
           "--scan-folder",
-          getPlugInsPath().toString());
+          bundleRoot.resolve(destinations.getPlugInsPath()).toString());
 
       stepsBuilder.add(
           new SwiftStdlibStep(
@@ -712,7 +709,7 @@ public class AppleBundle
                   getProjectFilesystem(),
                   getBuildTarget(),
                   "__swift_temp__%s"),
-              bundleRoot.resolve(Paths.get("Frameworks")),
+              destinationPath,
               swiftStdlibCommand.build(),
               codeSignIdentitySupplier)
       );
