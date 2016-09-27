@@ -500,7 +500,11 @@ public class AppleBundle
         };
       }
 
-      addSwiftStdlibStepIfNeeded(Optional.of(codeSignIdentitySupplier), stepsBuilder);
+      addSwiftStdlibStepIfNeeded(
+        bundleRoot.resolve(Paths.get("Frameworks")),
+        Optional.of(codeSignIdentitySupplier),
+        stepsBuilder
+      );
 
       stepsBuilder.add(
           new CodeSignStep(
@@ -511,7 +515,11 @@ public class AppleBundle
               codeSignIdentitySupplier,
               codesignAllocatePath));
     } else {
-      addSwiftStdlibStepIfNeeded(Optional.<Supplier<CodeSignIdentity>>absent(), stepsBuilder);
+      addSwiftStdlibStepIfNeeded(
+        bundleRoot.resolve(Paths.get("Frameworks")),
+        Optional.<Supplier<CodeSignIdentity>>absent(),
+        stepsBuilder
+      );
     }
 
     // Ensure the bundle directory is archived so we can fetch it later.
@@ -677,7 +685,8 @@ public class AppleBundle
     return keys.build();
   }
 
-  private void addSwiftStdlibStepIfNeeded(
+  public void addSwiftStdlibStepIfNeeded(
+      Path destinationPath,
       Optional<Supplier<CodeSignIdentity>> codeSignIdentitySupplier,
       ImmutableList.Builder<Step> stepsBuilder) {
     // It's apparently safe to run this even on a non-swift bundle (in that case, no libs
@@ -689,7 +698,7 @@ public class AppleBundle
           "--scan-executable",
           bundleBinaryPath.toString(),
           "--scan-folder",
-          bundleRoot.resolve(destinations.getFrameworksPath()).toString(),
+          bundleRoot.resolve(this.destinations.getFrameworksPath()).toString(),
           "--scan-folder",
           bundleRoot.resolve(destinations.getPlugInsPath()).toString());
 
@@ -700,7 +709,7 @@ public class AppleBundle
                   getProjectFilesystem(),
                   getBuildTarget(),
                   "__swift_temp__%s"),
-              bundleRoot.resolve(Paths.get("Frameworks")),
+              destinationPath,
               swiftStdlibCommand.build(),
               codeSignIdentitySupplier)
       );
